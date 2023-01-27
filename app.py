@@ -1,137 +1,178 @@
+#pip install streamlit
+#pip install pandas
+#pip install sklearn
+
+
+# IMPORT STATEMENTS
 import streamlit as st
 import pandas as pd
-
-###################################
-from st_aggrid import AgGrid
-from st_aggrid.grid_options_builder import GridOptionsBuilder
-from st_aggrid.shared import JsCode
-
-###################################
-
-from functionforDownloadButtons import download_button
-
-###################################
+from PIL import Image
+import numpy as np
+import matplotlib.pyplot as plt
+import plotly.figure_factory as ff
+from sklearn.metrics import accuracy_score
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+import seaborn as sns
 
 
-def _max_width_():
-    max_width_str = f"max-width: 1800px;"
-    st.markdown(
-        f"""
-    <style>
-    .reportview-container .main .block-container{{
-        {max_width_str}
-    }}
-    </style>    
-    """,
-        unsafe_allow_html=True,
-    )
 
-st.set_page_config(page_icon="✂️", page_title="CSV Wrangler")
+df = pd.read_csv(![](diabetes.csv))
 
-# st.image("https://emojipedia-us.s3.dualstack.us-west-1.amazonaws.com/thumbs/240/apple/285/balloon_1f388.png", width=100)
-st.image(
-    "https://emojipedia-us.s3.dualstack.us-west-1.amazonaws.com/thumbs/240/apple/285/scissors_2702-fe0f.png",
-    width=100,
-)
-
-st.title("CSV Wrangler")
-
-# st.caption(
-#     "PRD : TBC | Streamlit Ag-Grid from Pablo Fonseca: https://pypi.org/project/streamlit-aggrid/"
-# )
+# HEADINGS
+st.title('Diabetes Checkup')
+st.sidebar.header('Patient Data')
+st.subheader('Training Data Stats')
+st.write(df.describe())
 
 
-# ModelType = st.radio(
-#     "Choose your model",
-#     ["Flair", "DistilBERT (Default)"],
-#     help="At present, you can choose between 2 models (Flair or DistilBERT) to embed your text. More to come!",
-# )
-
-# with st.expander("ToDo's", expanded=False):
-#     st.markdown(
-#         """
-# -   Add pandas.json_normalize() - https://streamlit.slack.com/archives/D02CQ5Z5GHG/p1633102204005500
-# -   **Remove 200 MB limit and test with larger CSVs**. Currently, the content is embedded in base64 format, so we may end up with a large HTML file for the browser to render
-# -   **Add an encoding selector** (to cater for a wider array of encoding types)
-# -   **Expand accepted file types** (currently only .csv can be imported. Could expand to .xlsx, .txt & more)
-# -   Add the ability to convert to pivot → filter → export wrangled output (Pablo is due to change AgGrid to allow export of pivoted/grouped data)
-# 	    """
-#     )
-# 
-#     st.text("")
+# X AND Y DATA
+x = df.drop(['Outcome'], axis = 1)
+y = df.iloc[:, -1]
+x_train, x_test, y_train, y_test = train_test_split(x,y, test_size = 0.2, random_state = 0)
 
 
-c29, c30, c31 = st.columns([1, 6, 1])
+# FUNCTION
+def user_report():
+  pregnancies = st.sidebar.slider('Pregnancies', 0,17, 3 )
+  glucose = st.sidebar.slider('Glucose', 0,200, 120 )
+  bp = st.sidebar.slider('Blood Pressure', 0,122, 70 )
+  skinthickness = st.sidebar.slider('Skin Thickness', 0,100, 20 )
+  insulin = st.sidebar.slider('Insulin', 0,846, 79 )
+  bmi = st.sidebar.slider('BMI', 0,67, 20 )
+  dpf = st.sidebar.slider('Diabetes Pedigree Function', 0.0,2.4, 0.47 )
+  age = st.sidebar.slider('Age', 21,88, 33 )
 
-with c30:
+  user_report_data = {
+      'pregnancies':pregnancies,
+      'glucose':glucose,
+      'bp':bp,
+      'skinthickness':skinthickness,
+      'insulin':insulin,
+      'bmi':bmi,
+      'dpf':dpf,
+      'age':age
+  }
+  report_data = pd.DataFrame(user_report_data, index=[0])
+  return report_data
 
-    uploaded_file = st.file_uploader(
-        "",
-        key="1",
-        help="To activate 'wide mode', go to the hamburger menu > Settings > turn on 'wide mode'",
-    )
 
-    if uploaded_file is not None:
-        file_container = st.expander("Check your uploaded .csv")
-        shows = pd.read_csv(uploaded_file)
-        uploaded_file.seek(0)
-        file_container.write(shows)
 
-    else:
-        st.info(
-            f"""
-                👆 Upload a .csv file first. Sample to try: [biostats.csv](https://people.sc.fsu.edu/~jburkardt/data/csv/biostats.csv)
-                """
-        )
 
-        st.stop()
+# PATIENT DATA
+user_data = user_report()
+st.subheader('Patient Data')
+st.write(user_data)
 
-from st_aggrid import GridUpdateMode, DataReturnMode
 
-gb = GridOptionsBuilder.from_dataframe(shows)
-# enables pivoting on all columns, however i'd need to change ag grid to allow export of pivoted/grouped data, however it select/filters groups
-gb.configure_default_column(enablePivot=True, enableValue=True, enableRowGroup=True)
-gb.configure_selection(selection_mode="multiple", use_checkbox=True)
-gb.configure_side_bar()  # side_bar is clearly a typo :) should by sidebar
-gridOptions = gb.build()
 
-st.success(
-    f"""
-        💡 Tip! Hold the shift key when selecting rows to select multiple rows at once!
-        """
-)
 
-response = AgGrid(
-    shows,
-    gridOptions=gridOptions,
-    enable_enterprise_modules=True,
-    update_mode=GridUpdateMode.MODEL_CHANGED,
-    data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
-    fit_columns_on_grid_load=False,
-)
+# MODEL
+rf  = RandomForestClassifier()
+rf.fit(x_train, y_train)
+user_result = rf.predict(user_data)
 
-df = pd.DataFrame(response["selected_rows"])
 
-st.subheader("Filtered data will appear below 👇 ")
-st.text("")
 
-st.table(df)
+# VISUALISATIONS
+st.title('Visualised Patient Report')
 
-st.text("")
 
-c29, c30, c31 = st.columns([1, 1, 2])
 
-with c29:
+# COLOR FUNCTION
+if user_result[0]==0:
+  color = 'blue'
+else:
+  color = 'red'
 
-    CSVButton = download_button(
-        df,
-        "File.csv",
-        "Download to CSV",
-    )
 
-with c30:
-    CSVButton = download_button(
-        df,
-        "File.csv",
-        "Download to TXT",
-    )
+# Age vs Pregnancies
+st.header('Pregnancy count Graph (Others vs Yours)')
+fig_preg = plt.figure()
+ax1 = sns.scatterplot(x = 'Age', y = 'Pregnancies', data = df, hue = 'Outcome', palette = 'Greens')
+ax2 = sns.scatterplot(x = user_data['age'], y = user_data['pregnancies'], s = 150, color = color)
+plt.xticks(np.arange(10,100,5))
+plt.yticks(np.arange(0,20,2))
+plt.title('0 - Healthy & 1 - Unhealthy')
+st.pyplot(fig_preg)
+
+
+
+# Age vs Glucose
+st.header('Glucose Value Graph (Others vs Yours)')
+fig_glucose = plt.figure()
+ax3 = sns.scatterplot(x = 'Age', y = 'Glucose', data = df, hue = 'Outcome' , palette='magma')
+ax4 = sns.scatterplot(x = user_data['age'], y = user_data['glucose'], s = 150, color = color)
+plt.xticks(np.arange(10,100,5))
+plt.yticks(np.arange(0,220,10))
+plt.title('0 - Healthy & 1 - Unhealthy')
+st.pyplot(fig_glucose)
+
+
+
+# Age vs Bp
+st.header('Blood Pressure Value Graph (Others vs Yours)')
+fig_bp = plt.figure()
+ax5 = sns.scatterplot(x = 'Age', y = 'BloodPressure', data = df, hue = 'Outcome', palette='Reds')
+ax6 = sns.scatterplot(x = user_data['age'], y = user_data['bp'], s = 150, color = color)
+plt.xticks(np.arange(10,100,5))
+plt.yticks(np.arange(0,130,10))
+plt.title('0 - Healthy & 1 - Unhealthy')
+st.pyplot(fig_bp)
+
+
+# Age vs St
+st.header('Skin Thickness Value Graph (Others vs Yours)')
+fig_st = plt.figure()
+ax7 = sns.scatterplot(x = 'Age', y = 'SkinThickness', data = df, hue = 'Outcome', palette='Blues')
+ax8 = sns.scatterplot(x = user_data['age'], y = user_data['skinthickness'], s = 150, color = color)
+plt.xticks(np.arange(10,100,5))
+plt.yticks(np.arange(0,110,10))
+plt.title('0 - Healthy & 1 - Unhealthy')
+st.pyplot(fig_st)
+
+
+# Age vs Insulin
+st.header('Insulin Value Graph (Others vs Yours)')
+fig_i = plt.figure()
+ax9 = sns.scatterplot(x = 'Age', y = 'Insulin', data = df, hue = 'Outcome', palette='rocket')
+ax10 = sns.scatterplot(x = user_data['age'], y = user_data['insulin'], s = 150, color = color)
+plt.xticks(np.arange(10,100,5))
+plt.yticks(np.arange(0,900,50))
+plt.title('0 - Healthy & 1 - Unhealthy')
+st.pyplot(fig_i)
+
+
+# Age vs BMI
+st.header('BMI Value Graph (Others vs Yours)')
+fig_bmi = plt.figure()
+ax11 = sns.scatterplot(x = 'Age', y = 'BMI', data = df, hue = 'Outcome', palette='rainbow')
+ax12 = sns.scatterplot(x = user_data['age'], y = user_data['bmi'], s = 150, color = color)
+plt.xticks(np.arange(10,100,5))
+plt.yticks(np.arange(0,70,5))
+plt.title('0 - Healthy & 1 - Unhealthy')
+st.pyplot(fig_bmi)
+
+
+# Age vs Dpf
+st.header('DPF Value Graph (Others vs Yours)')
+fig_dpf = plt.figure()
+ax13 = sns.scatterplot(x = 'Age', y = 'DiabetesPedigreeFunction', data = df, hue = 'Outcome', palette='YlOrBr')
+ax14 = sns.scatterplot(x = user_data['age'], y = user_data['dpf'], s = 150, color = color)
+plt.xticks(np.arange(10,100,5))
+plt.yticks(np.arange(0,3,0.2))
+plt.title('0 - Healthy & 1 - Unhealthy')
+st.pyplot(fig_dpf)
+
+
+
+# OUTPUT
+st.subheader('Your Report: ')
+output=''
+if user_result[0]==0:
+  output = 'You are not Diabetic'
+else:
+  output = 'You are Diabetic'
+st.title(output)
+st.subheader('Accuracy: ')
+st.write(str(accuracy_score(y_test, rf.predict(x_test))*100)+'%')
